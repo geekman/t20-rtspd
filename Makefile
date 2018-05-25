@@ -21,7 +21,7 @@ LINK 		 =  $(CROSS_COMPILE)g++ -o
 #LINK_OPTS    =  -ldl  -lm -lpthread -ldl -g
 LINK_OPTS    =  -lpthread -lm -lrt -ldl
 CONSOLE_LINK_OPTS = $(LINK_OPTS)
-LINK_OBJ	 = imp-common.o capture_and_encoding.o h264_video_streamer.o 
+LINK_OBJ	 = imp-common.o capture_and_encoding.o on_demand_rtsp_server.o 
 
 APP = my-carrier-server
 
