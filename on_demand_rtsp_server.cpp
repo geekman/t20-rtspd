@@ -47,88 +47,90 @@ static char newDemuxWatchVariable;
 
 static MatroskaFileServerDemux* matroskaDemux;
 static void onMatroskaDemuxCreation(MatroskaFileServerDemux* newDemux, void* /*clientData*/) {
-  matroskaDemux = newDemux;
-  newDemuxWatchVariable = 1;
+	matroskaDemux = newDemux;
+	newDemuxWatchVariable = 1;
 }
 
 static OggFileServerDemux* oggDemux;
 static void onOggDemuxCreation(OggFileServerDemux* newDemux, void* /*clientData*/) {
-  oggDemux = newDemux;
-  newDemuxWatchVariable = 1;
+	oggDemux = newDemux;
+	newDemuxWatchVariable = 1;
 }
 
 int main(int argc, char** argv) {
-  // Begin by setting up our usage environment:
-  TaskScheduler* scheduler = BasicTaskScheduler::createNew();
-  env = BasicUsageEnvironment::createNew(*scheduler);
+	// Begin by setting up our usage environment:
+	TaskScheduler* scheduler = BasicTaskScheduler::createNew();
+	env = BasicUsageEnvironment::createNew(*scheduler);
 
-  UserAuthenticationDatabase* authDB = NULL;
+	UserAuthenticationDatabase* authDB = NULL;
 #ifdef ACCESS_CONTROL
-  // To implement client access control to the RTSP server, do the following:
-  authDB = new UserAuthenticationDatabase;
-  authDB->addUserRecord("username1", "password1"); // replace these with real strings
-  // Repeat the above with each <username>, <password> that you wish to allow
-  // access to the server.
+	// To implement client access control to the RTSP server, do the following:
+	authDB = new UserAuthenticationDatabase;
+	authDB->addUserRecord("username1", "password1"); // replace these with real strings
+	// Repeat the above with each <username>, <password> that you wish to allow
+	// access to the server.
 #endif
-  int fd;
-  
-  capture_and_encoding();
-  unlink(inputFileName);
-	
-  if (mkfifo(inputFileName, 0777) < 0) {
-		  *env << "mkfifo Failed\n";
-		  exit(1);; 
-  }
-  
-  if (fork() > 0) {
-	  fd = open(inputFileName, O_RDWR | O_CREAT | O_TRUNC, 0777);
-	  if (fd < 0) {
-		  *env << "Failed open fifo\n";
-		  exit(1);; 
-	  }   
-	  while (1) {
-		  get_stream(fd ,0);
-	  }
-  } else {
+	int fd;
 
-	  // Create the RTSP server:
-	  RTSPServer* rtspServer = RTSPServer::createNew(*env, 8554, authDB);
-	  if (rtspServer == NULL) {
-	    *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
-	    exit(1);
-	  }
+	capture_and_encoding();//基于君正提供的API初始化实现采集和编码模块
+	unlink(inputFileName);
+		
+	if (mkfifo(inputFileName, 0777) < 0) {
+			  *env << "mkfifo Failed\n";
+			  exit(1);; 
+	}
 
-	  char const* descriptionString
-	    = "Session streamed by \"testOnDemandRTSPServer\"";
+	if (fork() > 0) {
+		fd = open(inputFileName, O_RDWR | O_CREAT | O_TRUNC, 0777);
+		if (fd < 0) {
+			  *env << "Failed open fifo\n";
+			  exit(1);; 
+		}   
+		while (1) {
+			  get_stream(fd ,0);//基于君正提供的API实现采集和编码，并将编码后的数据保存到fifo中。
+		}
+	} else {
+		// Create a 'H264 Video RTP' sink from the RTP 'groupsock':
+		OutPacketBuffer::maxSize = 600000;
+		
+        // Create the RTSP server:
+		RTSPServer* rtspServer = RTSPServer::createNew(*env, 8554, authDB);
+		if (rtspServer == NULL) {
+		  *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
+		  exit(1);
+		}
 
-	  // Set up each of the possible streams that can be served by the
-	  // RTSP server.  Each such stream is implemented using a
-	  // "ServerMediaSession" object, plus one or more
-	  // "ServerMediaSubsession" objects for each audio/video substream.
+		char const* descriptionString
+		  = "Session streamed by \"testOnDemandRTSPServer\"";
 
-	  // A H.264 video elementary stream:
-	    char const* streamName = "stream";
-	    ServerMediaSession* sms
-	      = ServerMediaSession::createNew(*env, streamName, streamName,
+		// Set up each of the possible streams that can be served by the
+		// RTSP server.  Each such stream is implemented using a
+		// "ServerMediaSession" object, plus one or more
+		// "ServerMediaSubsession" objects for each audio/video substream.
+
+		// A H.264 video elementary stream:
+		char const* streamName = "stream";
+		ServerMediaSession* sms
+		  = ServerMediaSession::createNew(*env, streamName, streamName,
 					      descriptionString);
-	    sms->addSubsession(H264VideoFileServerMediaSubsession
+		sms->addSubsession(H264VideoFileServerMediaSubsession
 			       ::createNew(*env, inputFileName, reuseFirstSource));
-	    rtspServer->addServerMediaSession(sms);
+		rtspServer->addServerMediaSession(sms);
 
-	    announceStream(rtspServer, sms, streamName, inputFileName);
-  }
+		announceStream(rtspServer, sms, streamName, inputFileName);
+	}
 
-  env->taskScheduler().doEventLoop(); // does not return
+	env->taskScheduler().doEventLoop(); // does not return
 
-  return 0; // only to prevent compiler warning
+	return 0; // only to prevent compiler warning
 }
 
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
 			   char const* streamName, char const* inputFileName) {
-  char* url = rtspServer->rtspURL(sms);
-  UsageEnvironment& env = rtspServer->envir();
-  env << "\n\"" << streamName << "\" stream, from the file \""
-      << inputFileName << "\"\n";
-  env << "Play this stream using the URL \"" << url << "\"\n";
-  delete[] url;
+	char* url = rtspServer->rtspURL(sms);
+	UsageEnvironment& env = rtspServer->envir();
+	env << "\n\"" << streamName << "\" stream, from the file \""
+	    << inputFileName << "\"\n";
+	env << "Play this stream using the URL \"" << url << "\"\n";
+	delete[] url;
 }
