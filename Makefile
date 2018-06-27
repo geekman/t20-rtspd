@@ -25,6 +25,16 @@ LINK_OBJ	 = imp-common.o capture_and_encoding.o on_demand_rtsp_server.o
 
 APP = my-carrier-server
 
+commit_tag=$(shell git rev-parse --short HEAD)
+.PHONY:all
+all : version $(APP)
+version :
+	@if  ! grep "$(commit_tag)" version.h >/dev/null ; then                   \
+        echo "update version.h"       ;    \
+        sed 's/COMMIT_TAG/"$(commit_tag)"/g' version.tpl.h > version.h     ;  \
+    fi
+
+$(APP):
 .$(C).$(OBJ):
 	$(C_COMPILER) -c $(C_FLAGS) $<
 .$(CPP).$(OBJ):
@@ -34,5 +44,5 @@ $(APP): $(LINK_OBJ)
 	cp $(APP) ~/tftproot/
 
 clean:
-	-rm -rf *.$(OBJ) $(APP) core *.core *~ include/*~
+	-rm -rf *.$(OBJ) $(APP) core *.core *~ include/*~ version.h
 

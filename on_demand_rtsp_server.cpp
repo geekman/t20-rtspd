@@ -25,6 +25,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include <fcntl.h>
  
 #include "capture_and_encoding.h"
+#include "version.h"
 
 UsageEnvironment* env;
 
@@ -59,8 +60,26 @@ static void onOggDemuxCreation(OggFileServerDemux* newDemux, void* /*clientData*
 
 int main(int argc, char** argv) {
 	// Begin by setting up our usage environment:
+	char const* versionFileName = "/tmp/version";
 	TaskScheduler* scheduler = BasicTaskScheduler::createNew();
 	env = BasicUsageEnvironment::createNew(*scheduler);
+
+	int ver_fd;
+	int ret;
+	ver_fd = open(versionFileName, O_RDWR | O_CREAT | O_TRUNC, 0777);
+	if (ver_fd < 0) {
+		  *env << "Failed open /tmp/version\n";
+		  exit(1);
+	}
+
+	ret = write(ver_fd, VERSION, sizeof(VERSION));
+	if (ret != sizeof(VERSION)) {
+		*env << "write version failed!\n";
+	}
+
+	close(ver_fd);
+
+	*env << "my-carrier-server version: " << VERSION << "\n";
 
 	UserAuthenticationDatabase* authDB = NULL;
 #ifdef ACCESS_CONTROL
@@ -133,4 +152,5 @@ static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
 	    << inputFileName << "\"\n";
 	env << "Play this stream using the URL \"" << url << "\"\n";
 	delete[] url;
+	system("/system/init/tcp_server_daemon.sh &");
 }
