@@ -1,0 +1,3 @@
+*.o
+version.h
+t20-rtspd

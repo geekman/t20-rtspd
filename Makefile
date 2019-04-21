@@ -23,7 +23,7 @@ LINK_OPTS    =  -lpthread -lm -lrt -ldl
 CONSOLE_LINK_OPTS = $(LINK_OPTS)
 LINK_OBJ	 = imp-common.o capture_and_encoding.o on_demand_rtsp_server.o 
 
-APP = my-carrier-server
+APP = t20-rtspd
 
 commit_tag=$(shell git rev-parse --short HEAD)
 .PHONY:all
