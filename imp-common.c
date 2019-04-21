@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <imp/imp_log.h>
 #include <imp/imp_common.h>
@@ -1180,150 +1181,101 @@ int sample_get_jpeg_snap()
 
 int sample_set_IRCUT(int enable)
 {
-	int fd, fd51;
-	char on[4], off[4];
-	if (!access("/tmp/setir",0)) {
-		if (enable) {
-			system("/tmp/setir 0 1");
-		} else {
-			system("/tmp/setir 1 0");
-		}
-	}
-	fd = open("/sys/class/gpio/export", O_WRONLY);
-	if (fd < 0) {
-		IMP_LOG_DBG(TAG, "open /sys/class/gpio/export error !");
+	int fd1, fd2;
+	fd1 = open("/sys/class/gpio/gpio25/value", O_RDWR);
+	if (fd1 < 0) {
+		IMP_LOG_DBG(TAG, "open gpio 25 error !");
 		return -1;
 	}
-	write(fd, "51", 2);
-	close(fd);
-	fd51 = open("/sys/class/gpio/gpio51/direction", O_RDWR);
-	if (fd51 < 0) {
-		IMP_LOG_DBG(TAG, "open /sys/class/gpio/gpio51/direction error !");
+	fd2 = open("/sys/class/gpio/gpio26/value", O_RDWR);
+	if (fd2 < 0) {
+		close(fd1);
+		IMP_LOG_DBG(TAG, "open gpio 26 error !");
 		return -1;
 	}
-	write(fd51, "out", 3);
-	close(fd51);
-	fd51 = open("/sys/class/gpio/gpio51/active_low", O_RDWR);
-	if (fd51 < 0) {
-		IMP_LOG_DBG(TAG, "open /sys/class/gpio/gpio25/active_low error !");
-		return -1;
-	}
-	write(fd51, "0", 1);
-	close(fd51);
-	fd51 = open("/sys/class/gpio/gpio51/value", O_RDWR);
-	if (fd51 < 0) {
-		IMP_LOG_DBG(TAG, "open /sys/class/gpio/gpio51/value error !");
-		return -1;
-	}
-	sprintf(on, "%d", enable);
-	sprintf(off, "%d", !enable);
 	if (enable) {
-		write(fd51, "0", 1);
-		usleep(10*1000);
+		write(fd2, "1", 1);
 	} else {
-		write(fd51, "1", 1);
-		usleep(10*1000);
+		write(fd1, "1", 1);
 	}
-	close(fd51);
+
+	usleep(500*1000);
+	write(fd1, "0", 1);
+	write(fd2, "0", 1);
+
+	close(fd1);
+	close(fd2);
 	return 0;
+}
+
+char *get_curr_timestr(char *buf) {
+	time_t t;
+	struct tm *tminfo;
+
+	time(&t);
+	tminfo = localtime(&t);
+	sprintf(buf, "%02d:%02d:%02d", tminfo->tm_hour, tminfo->tm_min, tminfo->tm_sec);
+	return buf;
 }
 
 static int  g_soft_ps_running = 1;
 void *sample_soft_photosensitive_ctrl(void *p)
 {
 	int i = 0;
-	float gb_gain,gr_gain;
-	float iso_buf;
-	bool ircut_status = true;
-	g_soft_ps_running = 1;
-	int night_count = 0;
-	int day_count = 0;
-	//int day_oth_count = 0;
-	//bayer域的 (g分量/b分量) 统计值
-	float gb_gain_record = 200;
-	float gr_gain_record = 200;
-	float gb_gain_buf = 200, gr_gain_buf = 200;
+	int evDebugCount = 0;
+	char tmstr[16];
+	int avgExp;
 	IMPISPRunningMode pmode;
-	IMPISPEVAttr ExpAttr;
-	IMPISPWB wb;
-	IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_DAY);
-	sample_set_IRCUT(1);
 
 	while (g_soft_ps_running) {
-		//获取曝光AE信息
-		int ret = IMP_ISP_Tuning_GetEVAttr(&ExpAttr);
-		if (ret ==0) {
-			printf("u32ExposureTime: %d\n", ExpAttr.ev);
-			printf("u32AnalogGain: %d\n", ExpAttr.again);
-			printf("u32DGain: %d\n", ExpAttr.dgain);
-		} else
-			return NULL;
-		iso_buf = ExpAttr.ev;
-		printf(" iso buf ==%f\n",iso_buf);
-		ret = IMP_ISP_Tuning_GetWB_Statis(&wb);
+		IMPISPEVAttr expAttr;
+		int ret = IMP_ISP_Tuning_GetEVAttr(&expAttr);
 		if (ret == 0) {
-			gr_gain =wb.rgain;
-			gb_gain =wb.bgain;
-			// printf("gb_gain: %f\n", gb_gain);
-			// printf("gr_gain: %f\n", gr_gain);
-			// printf("gr_gain_record: %f\n", gr_gain_record);
+			if (evDebugCount > 0) {
+				IMP_LOG_DBG(TAG, "EV attr: exp %d aGain %d dGain %d\n",
+						expAttr.ev, expAttr.again, expAttr.dgain);
+				evDebugCount--;
+			}
 		} else
 			return NULL;
 
-		//平均亮度小于20，则切到夜视模式
-		if (iso_buf >1900000) {
-			night_count++;
-			printf("night_count==%d\n",night_count);
-			if (night_count>5) {
-				IMP_ISP_Tuning_GetISPRunningMode(&pmode);
-				if (pmode!=IMPISP_RUNNING_MODE_NIGHT) {
-					printf("### entry night mode ###\n");
-					IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_NIGHT);
-					sample_set_IRCUT(0);
-					ircut_status = true;
-				}
-				//切夜视后，取20个gb_gain的的最小值，作为切换白天的参考数值gb_gain_record ，gb_gain为bayer的G/B
-				for (i=0; i<20; i++) {
-					IMP_ISP_Tuning_GetWB_Statis(&wb);;
-					gr_gain =wb.rgain;
-					gb_gain =wb.bgain;
-					if (i==0) {
-						gb_gain_buf = gb_gain;
-						gr_gain_buf = gr_gain;
-					}
-					gb_gain_buf = ((gb_gain_buf>gb_gain)?gb_gain:gb_gain_buf);
-					gr_gain_buf = ((gr_gain_buf>gr_gain)?gr_gain:gr_gain_buf);
-					usleep(300000);
-					gb_gain_record = gb_gain_buf;
-					gr_gain_record = gr_gain_buf;
-					// printf("gb_gain == %f,iso_buf=%f",gb_gain,iso_buf);
-					// printf("gr_gain_record == %f\n ",gr_gain_record);
-				}
+		if (i == 0) {
+			avgExp = expAttr.ev;
+		} else {
+			// exponential moving average
+			avgExp -= avgExp / i;
+			avgExp += expAttr.ev / i;
+		}
+
+		if (i < 3) i++;
+
+		IMP_ISP_Tuning_GetISPRunningMode(&pmode);
+
+		if (avgExp > 1900000) {
+			if (pmode != IMPISP_RUNNING_MODE_NIGHT) {
+				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. switching to night mode\n",
+						get_curr_timestr((char *) &tmstr), avgExp);
+				evDebugCount = 10; // start logging 10s of EV data
+
+				IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_NIGHT);
+				IMP_ISP_Tuning_SetSensorFPS(10, SENSOR_FRAME_RATE_DEN);
+				sample_set_IRCUT(1);
 			}
-		} else
-			night_count = 0;
-		//满足这3个条件进入白天切换判断条件
-		if (((int)iso_buf < 479832) &&(ircut_status == true) &&(gb_gain>gb_gain_record+15)) {
-			if ((iso_buf<361880)||(gb_gain >145))
-				day_count++;
-			else
-				day_count=0;
-			// printf("gr_gain_record == %f gr_gain =%f line=%d\n",gr_gain_record,gr_gain,__LINE__);
-			// printf("day_count == %d\n",day_count);
-			if (day_count>3) {
-				printf("### entry day mode ###\n");
-				IMP_ISP_Tuning_GetISPRunningMode(&pmode);
-				if (pmode!=IMPISP_RUNNING_MODE_DAY) {
-					IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_DAY);
-					sample_set_IRCUT(1);
-					ircut_status = false;
-				}
+		} else if (avgExp < 479832) {
+			if (pmode != IMPISP_RUNNING_MODE_DAY) {
+				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. switching to day mode\n",
+						get_curr_timestr((char *) &tmstr), avgExp);
+				evDebugCount = 10; // start logging 10s of EV data
+
+				IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_DAY);
+				IMP_ISP_Tuning_SetSensorFPS(SENSOR_FRAME_RATE_NUM, SENSOR_FRAME_RATE_DEN);
+				sample_set_IRCUT(0);
 			}
 		}
-		else
-			day_count = 0;
+
 		sleep(1);
 	}
+
 	return NULL;
 }
 
