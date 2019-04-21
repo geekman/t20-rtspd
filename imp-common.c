@@ -38,7 +38,7 @@ struct chn_conf chn[FS_CHN_NUM] = {
 			.pixFmt = PIX_FMT_NV12,
 			.outFrmRateNum = SENSOR_FRAME_RATE_NUM,
 			.outFrmRateDen = SENSOR_FRAME_RATE_DEN,
-			.nrVBs = 3,
+			.nrVBs = 2,
 			.type = FS_PHY_CHANNEL,
 
 			.crop.enable = CROP_EN,
@@ -62,7 +62,7 @@ struct chn_conf chn[FS_CHN_NUM] = {
 			.pixFmt = PIX_FMT_NV12,
 			.outFrmRateNum = SENSOR_FRAME_RATE_NUM,
 			.outFrmRateDen = SENSOR_FRAME_RATE_DEN,
-			.nrVBs = 3,
+			.nrVBs = 2,
 			.type = FS_PHY_CHANNEL,
 
 			.crop.enable = CROP_EN,

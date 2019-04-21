@@ -14,6 +14,11 @@
 
 extern struct chn_conf chn[];
 
+extern "C" {
+extern int IMP_OSD_SetPoolSize(int newPoolSize);
+extern int IMP_Encoder_SetPoolSize(int newPoolSize0);
+}
+
 int destory()
 {
 
@@ -145,6 +150,9 @@ int capture_and_encoding()
 	
 	printf(">>>>>caputre_and_encoding start\n");
 
+	// undocumented functions to increase pool size
+	IMP_OSD_SetPoolSize(0x64000);
+	IMP_Encoder_SetPoolSize(0x100000);
 
 	ret = sample_system_init();
 	if (ret < 0) {
