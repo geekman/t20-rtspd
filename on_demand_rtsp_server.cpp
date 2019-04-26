@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
 		OutPacketBuffer::maxSize = 600000;
 		
         // Create the RTSP server:
-		RTSPServer* rtspServer = RTSPServer::createNew(*env, 8554, authDB);
+		RTSPServer* rtspServer = RTSPServer::createNew(*env, 554, authDB);
 		if (rtspServer == NULL) {
 		  *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
 		  exit(1);
@@ -152,5 +152,4 @@ static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
 	    << inputFileName << "\"\n";
 	env << "Play this stream using the URL \"" << url << "\"\n";
 	delete[] url;
-	system("/system/init/tcp_server_daemon.sh &");
 }
