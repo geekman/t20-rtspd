@@ -4,11 +4,12 @@ INCLUDES 	 = -I./include/live555/usageEnvironment/ -I./include/live555/groupsock
 LIVE555_LIBS =  ./lib/livelib/libliveMedia.a ./lib/livelib/libgroupsock.a \
 				./lib/livelib/libBasicUsageEnvironment.a ./lib/livelib/libUsageEnvironment.a
 SDK_LIB_DIR	=  ./lib/imp_sys/uclibc
-IMP_LIBS	= $(SDK_LIB_DIR)/libimp.a $(SDK_LIB_DIR)/libalog.a
+IMP_LIBS	= $(SDK_LIB_DIR)/libimp.so $(SDK_LIB_DIR)/libalog.so
 LIBS	=  $(LIVE555_LIBS) $(IMP_LIBS)
 
 CROSS_COMPILE?= mips-linux-uclibc-gnu-
 
+STRIP        = $(CROSS_COMPILE)strip
 COMPILE_OPTS =      $(INCLUDES) -I. -O2 -Wall -march=mips32r2 -DSOCKLEN_T=socklen_t -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -DLOCALE_NOT_USED -g
 C 			 =         c
 C_COMPILER   =	$(CROSS_COMPILE)gcc
@@ -41,6 +42,7 @@ $(APP):
 	$(CPLUSPLUS_COMPILER) -c $(CPLUSPLUS_FLAGS) $<
 $(APP): $(LINK_OBJ)
 	$(LINK)$@  $(LINK_OBJ)  $(LIBS) $(CONSOLE_LINK_OPTS)
+	$(STRIP) -s $@
 	cp $(APP) ~/tftproot/
 
 clean:
