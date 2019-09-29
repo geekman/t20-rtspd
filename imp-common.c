@@ -26,6 +26,7 @@
 #include "logodata_100x100_bgra.h"
 
 #include "imp-common.h"
+#include "pwm.h"
 
 #define TAG "imp-Common"
 
@@ -1226,6 +1227,24 @@ void *sample_soft_photosensitive_ctrl(void *p)
 	char tmstr[16];
 	int avgExp;
 	IMPISPRunningMode pmode;
+	int ir_leds_active = 0;
+	int r;
+
+	// initialize PWM
+	struct pwm_ioctl_t pwm_cfg = {
+		.channel = 0,
+		.period  = 1000000,
+		.duty    = 0,
+		.polarity = 1,
+	};
+
+	if (pwm_init() < 0) {
+		IMP_LOG_INFO(TAG, "cant pwm_init(): errno %d", errno);
+	} else if ((r = pwm_config(&pwm_cfg)) < 0) {
+		IMP_LOG_INFO(TAG, "cant config pwm: %d, errno %d", r, errno);
+	} else if ((r = pwm_enable(pwm_cfg.channel)) < 0) {
+		IMP_LOG_INFO(TAG, "cant enable pwm channel: %d, errno %d", r, errno);
+	}
 
 	while (g_soft_ps_running) {
 		IMPISPEVAttr expAttr;
@@ -1271,6 +1290,32 @@ void *sample_soft_photosensitive_ctrl(void *p)
 				IMP_ISP_Tuning_SetSensorFPS(SENSOR_FRAME_RATE_NUM, SENSOR_FRAME_RATE_DEN);
 				sample_set_IRCUT(0);
 			}
+		}
+
+		// control IR LEDs
+		if (avgExp > 3000000) {
+			// only log for first time
+			if (! ir_leds_active) {
+				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. turning on IR LEDs\n",
+						get_curr_timestr((char *) &tmstr), avgExp);
+				evDebugCount = 10; // start logging 10s of EV data
+			}
+
+			// map 3 to 13mil => 1 to 1mil for PWM
+			int level = (avgExp - 3000000) / 10;
+			// cap to maximum
+			if (level > pwm_cfg.period)
+				level = pwm_cfg.period;
+
+			pwm_set_duty(pwm_cfg.channel, level);
+			ir_leds_active = 1;
+		} else if (ir_leds_active) {
+			IMP_LOG_INFO(TAG, "[%s] avg exp is %d. turning off IR LEDs\n",
+						get_curr_timestr((char *) &tmstr), avgExp);
+			evDebugCount = 10; // start logging 10s of EV data
+
+			pwm_set_duty(pwm_cfg.channel, 0);
+			ir_leds_active = 0;
 		}
 
 		sleep(1);
