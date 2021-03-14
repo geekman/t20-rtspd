@@ -1226,6 +1226,8 @@ void *sample_soft_photosensitive_ctrl(void *p)
 	int evDebugCount = 0;
 	char tmstr[16];
 	int avgExp;
+	int expValues[128 / 8];
+	int expPos = 0;
 	IMPISPRunningMode pmode;
 	int ir_leds_active = 0;
 	int r;
@@ -1245,6 +1247,9 @@ void *sample_soft_photosensitive_ctrl(void *p)
 	} else if ((r = pwm_enable(pwm_cfg.channel)) < 0) {
 		IMP_LOG_INFO(TAG, "cant enable pwm channel: %d, errno %d", r, errno);
 	}
+
+	// make sure it's in an "uninitialized" state
+	expValues[128 / 8] = 0;
 
 	while (g_soft_ps_running) {
 		IMPISPEVAttr expAttr;
@@ -1267,6 +1272,22 @@ void *sample_soft_photosensitive_ctrl(void *p)
 		}
 
 		if (i < 3) i++;
+
+		// keep a longer running average exposure
+		if (expPos % 8 == 0)
+			expValues[expPos / 8] = expAttr.ev;
+		if (++expPos >= 128)
+			expPos = 0;
+
+		// calculate long average exposure value
+		int longExpValue = 0;
+		if (expValues[128 / 8] == 0) {
+			longExpValue = expValues[0];
+		} else {
+			int j;
+			for (j = 1; j <= 128 / 8; j++)
+				longExpValue += (expValues[j-1] - longExpValue) / j;
+		}
 
 		IMP_ISP_Tuning_GetISPRunningMode(&pmode);
 
@@ -1301,8 +1322,13 @@ void *sample_soft_photosensitive_ctrl(void *p)
 				evDebugCount = 10; // start logging 10s of EV data
 			}
 
+			// it's ok to go higher, but not lower than long-running average
+			// this prevents sudden bright bursts of light from dimming IR LEDs
+			int ev = (avgExp > longExpValue) ? avgExp : longExpValue;
+
 			// map 3 to 13mil => 1 to 1mil for PWM
-			int level = (avgExp - 3000000) / 10;
+			int level = (ev - 3000000) / 10;
+
 			// cap to maximum
 			if (level > pwm_cfg.period)
 				level = pwm_cfg.period;
