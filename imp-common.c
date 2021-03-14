@@ -1219,14 +1219,17 @@ char *get_curr_timestr(char *buf) {
 	return buf;
 }
 
+#define EXP_LENGTH (8 /*sec*/ * 24 /*cycles*/)
+#define NUM_EXP_VALUES (EXP_LENGTH / 8)
+
 static int  g_soft_ps_running = 1;
 void *sample_soft_photosensitive_ctrl(void *p)
 {
-	int i = 0;
 	int evDebugCount = 0;
 	char tmstr[16];
 	int avgExp;
-	int expValues[128 / 8];
+	int expCount = 0;
+	int expValues[NUM_EXP_VALUES];
 	int expPos = 0;
 	IMPISPRunningMode pmode;
 	int ir_leds_active = 0;
@@ -1249,7 +1252,7 @@ void *sample_soft_photosensitive_ctrl(void *p)
 	}
 
 	// make sure it's in an "uninitialized" state
-	expValues[128 / 8] = 0;
+	expValues[NUM_EXP_VALUES - 1] = 0;
 
 	while (g_soft_ps_running) {
 		IMPISPEVAttr expAttr;
@@ -1263,30 +1266,35 @@ void *sample_soft_photosensitive_ctrl(void *p)
 		} else
 			return NULL;
 
-		if (i == 0) {
+		if (expCount == 0) {
 			avgExp = expAttr.ev;
 		} else {
 			// exponential moving average
-			avgExp -= avgExp / i;
-			avgExp += expAttr.ev / i;
+			avgExp -= avgExp / expCount;
+			avgExp += expAttr.ev / expCount;
 		}
 
-		if (i < 3) i++;
+		if (expCount < 3) expCount++;
 
 		// keep a longer running average exposure
 		if (expPos % 8 == 0)
-			expValues[expPos / 8] = expAttr.ev;
-		if (++expPos >= 128)
+			expValues[expPos / 8] = avgExp;
+		if (++expPos >= EXP_LENGTH)
 			expPos = 0;
 
 		// calculate long average exposure value
 		int longExpValue = 0;
-		if (expValues[128 / 8] == 0) {
+		if (expValues[NUM_EXP_VALUES - 1] == 0) {
 			longExpValue = expValues[0];
 		} else {
-			int j;
-			for (j = 1; j <= 128 / 8; j++)
-				longExpValue += (expValues[j-1] - longExpValue) / j;
+			int stopPos = (expPos / 8) - 8;	// ignore recent 8 cycles
+			if (stopPos < 0) stopPos += NUM_EXP_VALUES;
+
+			int i, j;
+			for (i = 1, j = expPos / 8;
+					j < stopPos;
+					i++, j = (j + 1) % NUM_EXP_VALUES)
+				longExpValue += (expValues[j] - longExpValue) / i;
 		}
 
 		IMP_ISP_Tuning_GetISPRunningMode(&pmode);
