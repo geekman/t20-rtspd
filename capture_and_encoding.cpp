@@ -161,6 +161,7 @@ int capture_and_encoding()
 	}
 
 	/* Step.2 FrameSource init */
+	IMP_LOG_INFO(TAG, "FrameSource init...\n");
 	ret = sample_framesource_init();
 	if (ret < 0) {
 		IMP_LOG_ERR(TAG, "FrameSource init failed\n");
@@ -169,6 +170,7 @@ int capture_and_encoding()
 
 	for (i = 0; i < FS_CHN_NUM; i++) {
 		if (chn[i].enable) {
+			IMP_LOG_INFO(TAG, "Enc CreateGrp for ch %d...\n", i);
 			ret = IMP_Encoder_CreateGroup(chn[i].index);
 			if (ret < 0) {
 				IMP_LOG_ERR(TAG, "IMP_Encoder_CreateGroup(%d) error !\n", i);
@@ -178,6 +180,7 @@ int capture_and_encoding()
 	}
 
 	/* Step.3 Encoder init */
+	IMP_LOG_INFO(TAG, "EncoderInit...\n");
 	ret = sample_encoder_init();
 	if (ret < 0) {
 		IMP_LOG_ERR(TAG, "Encoder init failed\n");
@@ -187,6 +190,7 @@ int capture_and_encoding()
 	/* Step.4 Bind */
 	for (i = 0; i < FS_CHN_NUM; i++) {
 		if (chn[i].enable) {
+			IMP_LOG_INFO(TAG, "Binding for ch %d...\n", i);
 			ret = IMP_System_Bind(&chn[i].framesource_chn, &chn[i].imp_encoder);
 			if (ret < 0) {
 				IMP_LOG_ERR(TAG, "Bind FrameSource channel%d and Encoder failed\n",i);
@@ -196,6 +200,7 @@ int capture_and_encoding()
 	}
 
 	/* Step.5 Stream On */
+	IMP_LOG_INFO(TAG, "StreamOn...\n");
 	ret = sample_framesource_streamon();
 	if (ret < 0) {
 		IMP_LOG_ERR(TAG, "ImpStreamOn failed\n");
