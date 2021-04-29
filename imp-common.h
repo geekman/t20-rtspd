@@ -152,6 +152,15 @@ extern "C"
 #define CHN0_EN                 1
 #define CHN1_EN                 0
 #define CROP_EN					0
+#elif defined SENSOR_GC2053
+#define SENSOR_NAME				"gc2053"
+#define SENSOR_CUBS_TYPE        TX_SENSOR_CONTROL_INTERFACE_I2C
+#define SENSOR_I2C_ADDR			0x37
+#define SENSOR_WIDTH			1920
+#define SENSOR_HEIGHT			1080
+#define CHN0_EN                 1
+#define CHN1_EN                 0
+#define CROP_EN					0
 #endif
 
 #define SENSOR_WIDTH_SECOND		640
