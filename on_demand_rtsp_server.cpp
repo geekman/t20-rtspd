@@ -44,19 +44,6 @@ char const* inputFileName = "/tmp/h264_fifo";
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
 			   char const* streamName, char const* inputFileName); // fwd
 
-static char newDemuxWatchVariable;
-
-static MatroskaFileServerDemux* matroskaDemux;
-static void onMatroskaDemuxCreation(MatroskaFileServerDemux* newDemux, void* /*clientData*/) {
-	matroskaDemux = newDemux;
-	newDemuxWatchVariable = 1;
-}
-
-static OggFileServerDemux* oggDemux;
-static void onOggDemuxCreation(OggFileServerDemux* newDemux, void* /*clientData*/) {
-	oggDemux = newDemux;
-	newDemuxWatchVariable = 1;
-}
 
 int main(int argc, char** argv) {
 	// Begin by setting up our usage environment:
@@ -91,7 +78,11 @@ int main(int argc, char** argv) {
 #endif
 	int fd;
 
-	capture_and_encoding();//基于君正提供的API初始化实现采集和编码模块
+	//基于君正提供的API初始化实现采集和编码模块
+	if (capture_and_encoding() != 0) {
+		*env << "unable to setup camera stream\n";
+		exit(1);
+	}
 	unlink(inputFileName);
 		
 	if (mkfifo(inputFileName, 0777) < 0) {
@@ -106,13 +97,13 @@ int main(int argc, char** argv) {
 			  exit(1);; 
 		}   
 		while (1) {
-			  get_stream(fd ,0);//基于君正提供的API实现采集和编码，并将编码后的数据保存到fifo中。
+			  if (get_stream(fd ,0) < 0) break; //基于君正提供的API实现采集和编码，并将编码后的数据保存到fifo中。
 		}
 	} else {
 		// Create a 'H264 Video RTP' sink from the RTP 'groupsock':
 		OutPacketBuffer::maxSize = 600000;
 		
-        // Create the RTSP server:
+		// Create the RTSP server:
 		RTSPServer* rtspServer = RTSPServer::createNew(*env, 554, authDB);
 		if (rtspServer == NULL) {
 		  *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";

@@ -3,6 +3,6 @@
 
 int capture_and_encoding(void); 
 int destory(void);
-void *get_stream(int fd, int chn);
+int get_stream(int fd, int chn);
 
 #endif

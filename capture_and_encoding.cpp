@@ -119,24 +119,24 @@ static int get_h264_stream(int fd, int chn)
 	return 0;
 }
 
-void *get_stream(int fd, int chn)
+int get_stream(int fd, int chn)
 {
 	int  ret;
 	
 	ret = IMP_Encoder_StartRecvPic(chn);
 	if (ret < 0){
 		IMP_LOG_ERR(TAG, "IMP_Encoder_StartRecvPic(%d) failed\n", 1);
-		return NULL;
+		return ret;
 	}
 	ret = get_h264_stream(fd, chn);
 	if (ret < 0) {
 		IMP_LOG_ERR(TAG, "Get H264 stream failed\n");
-		return NULL;
+		return ret;
 	}
 /*	ret = IMP_Encoder_StopRecvPic(chn);
 	if (ret < 0) {
 		IMP_LOG_ERR(TAG, "IMP_Encoder_StopRecvPic() failed\n");
-		return NULL;
+		return ret;
 	}
 */
 	return 0;

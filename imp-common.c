@@ -401,6 +401,8 @@ int sample_framesource_ext_bgra_exit()
 	return 0;
 }
 
+#if 0
+// unused code
 int sample_jpeg_init()
 {
 	int i, ret;
@@ -439,6 +441,7 @@ int sample_jpeg_init()
 
 	return 0;
 }
+#endif
 
 int sample_encoder_init()
 {
@@ -889,6 +892,7 @@ int sample_osd_exit(IMPRgnHandle *prHander,int grpNum)
 	return 0;
 }
 
+#if 0
 static int save_stream(int fd, IMPEncoderStream *stream)
 {
 	int ret, i, nr_pack = stream->packCount;
@@ -1179,6 +1183,7 @@ int sample_get_jpeg_snap()
 	}
 	return 0;
 }
+#endif
 
 int sample_set_IRCUT(int enable)
 {
