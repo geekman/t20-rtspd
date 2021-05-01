@@ -1264,6 +1264,19 @@ char *get_curr_timestr(char *buf) {
 #define EXP_LENGTH (8 /*sec*/ * 24 /*cycles*/)
 #define NUM_EXP_VALUES (EXP_LENGTH / 8)
 
+
+static int ir_illumination = 1;		// use IR LEDs when dark
+
+int set_cam_option(char *option, int value) {
+	if (strcmp(option, "ir_leds") == 0) {
+		ir_illumination = value;
+	} else {
+		return -1;	// unknown option
+	}
+
+	return 0;
+}
+
 static int  g_soft_ps_running = 1;
 void *sample_soft_photosensitive_ctrl(void *p)
 {
@@ -1383,14 +1396,14 @@ void *sample_soft_photosensitive_ctrl(void *p)
 			if (level > pwm_cfg.period)
 				level = pwm_cfg.period;
 
-			pwm_set_duty(pwm_cfg.channel, level);
+			if (ir_illumination) pwm_set_duty(pwm_cfg.channel, level);
 			ir_leds_active = 1;
 		} else if (ir_leds_active) {
 			IMP_LOG_INFO(TAG, "[%s] avg exp is %d. turning off IR LEDs\n",
 						get_curr_timestr((char *) &tmstr), avgExp);
 			evDebugCount = 10; // start logging 10s of EV data
 
-			pwm_set_duty(pwm_cfg.channel, 0);
+			if (ir_illumination) pwm_set_duty(pwm_cfg.channel, 0);
 			ir_leds_active = 0;
 		}
 

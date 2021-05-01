@@ -44,6 +44,12 @@ char const* inputFileName = "/tmp/h264_fifo";
 static void announceStream(RTSPServer* rtspServer, ServerMediaSession* sms,
 			   char const* streamName, char const* inputFileName); // fwd
 
+void displayUsage() {
+	*env << "usage: t20-rtspd [args...]\n\n"
+		" --help    dispaly this help message\n"
+		" --noir    do not turn on IR LEDs (for use behind glass)\n";
+	exit(0);
+}
 
 int main(int argc, char** argv) {
 	// Begin by setting up our usage environment:
@@ -51,22 +57,28 @@ int main(int argc, char** argv) {
 	TaskScheduler* scheduler = BasicTaskScheduler::createNew();
 	env = BasicUsageEnvironment::createNew(*scheduler);
 
-	int ver_fd;
-	int ret;
-	ver_fd = open(versionFileName, O_RDWR | O_CREAT | O_TRUNC, 0777);
-	if (ver_fd < 0) {
-		  *env << "Failed open /tmp/version\n";
-		  exit(1);
-	}
-
-	ret = write(ver_fd, VERSION, sizeof(VERSION));
-	if (ret != sizeof(VERSION)) {
-		*env << "write version failed!\n";
-	}
-
-	close(ver_fd);
-
 	*env << "my-carrier-server version: " << VERSION << "\n";
+
+	// parse args
+	for (int i = 1; i < argc; i++) {
+		char *arg = argv[i];
+
+		if (*arg == '-') {
+			arg++;
+			if (*arg == '-') arg++; // tolerate 2 dashes
+
+			if (strcmp(arg, "help") == 0) {
+				displayUsage();
+				exit(0);
+			} else if (strcmp(arg, "noir") == 0) {
+				set_cam_option("ir_leds", 0);
+			} else {
+				*env << "unrecognized argument " << argv[i] << "\n\n";
+				displayUsage();
+				exit(2);
+			}
+		}
+	}
 
 	UserAuthenticationDatabase* authDB = NULL;
 #ifdef ACCESS_CONTROL
