@@ -193,6 +193,14 @@ int sample_system_init()
         return -1;
     }
 
+	// try not to blow out the highlights
+	// note that increasing this will decrease overall exposure
+	ret = IMP_ISP_Tuning_SetHiLightDepress(10);
+	if (ret < 0){
+		IMP_LOG_ERR(TAG, "failed to set hilight depress\n");
+		return -1;
+	}
+
 	IMP_LOG_INFO(TAG, "ImpSystemInit success\n");
 
 	return 0;
