@@ -19,8 +19,16 @@
 #include <imp/imp_common.h>
 #include <imp/imp_system.h>
 #include <imp/imp_framesource.h>
-#include <imp/imp_encoder.h>
 #include <imp/imp_isp.h>
+#ifdef PLATFORM_T31
+  #include <imp/imp_encoder_t31.h>
+
+  /* compat */
+  #define IMPEncoderCHNAttr IMPEncoderChnAttr
+  #define IMPEncoderCHNStat IMPEncoderChnStat
+#else
+  #include <imp/imp_encoder.h>
+#endif
 #include <imp/imp_osd.h>
 
 #include "logodata_100x100_bgra.h"
@@ -30,7 +38,11 @@
 
 #define TAG "imp-Common"
 
+#ifdef PLATFORM_T31
+static const int S_RC_METHOD = IMP_ENC_RC_MODE_VBR;
+#else
 static const int S_RC_METHOD = ENC_RC_MODE_SMART;
+#endif
 
 struct chn_conf chn[FS_CHN_NUM] = {
 	{
@@ -446,8 +458,6 @@ int sample_jpeg_init()
 int sample_encoder_init()
 {
 	int i, ret;
-	IMPEncoderAttr *enc_attr;
-	IMPEncoderRcAttr *rc_attr;
 	IMPFSChnAttr *imp_chn_attr_tmp;
 	IMPEncoderCHNAttr channel_attr;
 
@@ -455,6 +465,24 @@ int sample_encoder_init()
 		if (chn[i].enable) {
 			imp_chn_attr_tmp = &chn[i].fs_chn_attr;
 			memset(&channel_attr, 0, sizeof(IMPEncoderCHNAttr));
+
+#ifdef PLATFORM_T31
+			unsigned int uTargetBitRate = (double)2000.0 * (imp_chn_attr_tmp->picWidth * imp_chn_attr_tmp->picHeight) / (1280 * 720);
+			ret = IMP_Encoder_SetDefaultParam(&channel_attr, IMP_ENC_PROFILE_AVC_HIGH, S_RC_METHOD,
+					imp_chn_attr_tmp->picWidth, imp_chn_attr_tmp->picHeight,
+					imp_chn_attr_tmp->outFrmRateNum, imp_chn_attr_tmp->outFrmRateDen,
+					imp_chn_attr_tmp->outFrmRateNum * 2 / imp_chn_attr_tmp->outFrmRateDen, 2,
+					(S_RC_METHOD == IMP_ENC_RC_MODE_FIXQP) ? 35 : -1,
+					uTargetBitRate);
+			if (ret < 0) {
+				IMP_LOG_ERR(TAG, "IMP_Encoder_SetDefaultParam(%d) error !\n", chn[i].index);
+				return -1;
+			}
+
+#else
+			IMPEncoderRcAttr *rc_attr;
+			IMPEncoderAttr *enc_attr;
+
 			enc_attr = &channel_attr.encAttr;
 			enc_attr->enType = PT_H264;
 			enc_attr->bufSize = 0;
@@ -535,6 +563,7 @@ int sample_encoder_init()
                 rc_attr->attrHSkip.hSkipAttr.bBlackEnhance = 0;
                 rc_attr->attrHSkip.maxHSkipType = IMP_Encoder_STYPE_N1X;
             }
+#endif
 
 			ret = IMP_Encoder_CreateChn(chn[i].index, &channel_attr);
 			if (ret < 0) {

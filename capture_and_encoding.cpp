@@ -5,7 +5,11 @@
 #include <imp/imp_system.h>
 #include <imp/imp_log.h>
 #include <imp/imp_framesource.h>
-#include <imp/imp_encoder.h>
+#ifdef PLATFORM_T31
+  #include <imp/imp_encoder_t31.h>
+#else
+  #include <imp/imp_encoder.h>
+#endif
 
 #include "imp-common.h" 
 #include "capture_and_encoding.h"
@@ -75,20 +79,52 @@ int destory()
 
 static int save_stream(int fd, IMPEncoderStream *stream)
 {
-	unsigned int ret;
-	int i, nr_pack = stream->packCount;
+	int ret, i, nr_pack = stream->packCount;
 
 	for (i = 0; i < nr_pack; i++) {
+#ifdef PLATFORM_T31
+		IMPEncoderPack *pack = &stream->pack[i];
+		//IMP_LOG_DBG(TAG, "stream vir %08x cnt %d ss %d, p%d off %d len %d",
+		//	stream->virAddr, stream->packCount, stream->streamSize, 
+		//	i, pack->offset, pack->length);
+
+		if (pack->length) {
+			uint32_t sz = stream->streamSize - pack->offset;
+			if (sz < pack->length) {
+				// write offset to end part first?
+				ret = write(fd, (void *) (stream->virAddr + pack->offset), sz);
+				if (ret != (ssize_t) sz) {
+					IMP_LOG_ERR(TAG, "stream write error:%s\n", strerror(errno));
+					return -1;
+				}
+
+				ret = write(fd, (void *) stream->virAddr, pack->length - sz);
+				if (ret != (ssize_t) (pack->length - sz)) {
+					IMP_LOG_ERR(TAG, "stream write error:%s\n", strerror(errno));
+					return -1;
+				}
+			} else {
+				ret = write(fd, (void *) (stream->virAddr + pack->offset), pack->length);
+				if (ret != (ssize_t) pack->length) {
+					IMP_LOG_ERR(TAG, "stream write error:%s\n", strerror(errno));
+					return -1;
+				}
+			}
+		}
+#else
 		ret = write(fd, (void *)stream->pack[i].virAddr,
 					stream->pack[i].length);
-		if (ret != stream->pack[i].length){
-			IMP_LOG_ERR(TAG,"stream write error:%s\n", strerror(errno));
+		if (ret != stream->pack[i].length) {
+			IMP_LOG_ERR(TAG, "stream write error:%s\n", strerror(errno));
 			return -1;
 		}
+		//IMP_LOG_DBG(TAG, "stream->pack[%d].dataType=%d\n", i, ((int)stream->pack[i].dataType.h264Type));
+#endif
 	}
 
 	return 0;
 }
+
 
 static int get_h264_stream(int fd, int chn)
 {

@@ -138,6 +138,9 @@ typedef struct {
 	int outFrmRateDen;			/**< 通道的输出帧率分母 */
 	int nrVBs;					/**< Video buffer数量 */
 	IMPFSChnType type;			/**< 通道类型 */
+#ifdef PLATFORM_T31
+	IMPFSChnCrop fcrop;
+#endif
 } IMPFSChnAttr;
 
 /**
