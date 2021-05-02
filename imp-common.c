@@ -187,6 +187,13 @@ int sample_system_init()
 		return -1;
 	}
 
+	// set mode to day by default
+	ret = IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_DAY);
+	if(ret < 0){
+		IMP_LOG_ERR(TAG, "unable to set ISP running mode\n");
+		return -1;
+	}
+
     ret = IMP_ISP_Tuning_SetSensorFPS(SENSOR_FRAME_RATE_NUM, SENSOR_FRAME_RATE_DEN);
     if (ret < 0){
         IMP_LOG_ERR(TAG, "failed to set sensor fps\n");
@@ -1266,10 +1273,13 @@ char *get_curr_timestr(char *buf) {
 
 
 static int ir_illumination = 1;		// use IR LEDs when dark
+static int force_color = 0;			// use color mode, even at night
 
-int set_cam_option(char *option, int value) {
+int set_cam_option(const char *option, int value) {
 	if (strcmp(option, "ir_leds") == 0) {
 		ir_illumination = value;
+	} else if (strcmp(option, "force_color") == 0) {
+		force_color = value;
 	} else {
 		return -1;	// unknown option
 	}
@@ -1286,7 +1296,7 @@ void *sample_soft_photosensitive_ctrl(void *p)
 	int expCount = 0;
 	int expValues[NUM_EXP_VALUES];
 	int expPos = 0;
-	IMPISPRunningMode pmode;
+	IMPISPRunningMode pmode = IMPISP_RUNNING_MODE_BUTT;
 	int ir_leds_active = 0;
 	int r;
 
@@ -1352,26 +1362,33 @@ void *sample_soft_photosensitive_ctrl(void *p)
 				longExpValue += (expValues[j] - longExpValue) / i;
 		}
 
-		IMP_ISP_Tuning_GetISPRunningMode(&pmode);
 
 		if (avgExp > 1900000) {
 			if (pmode != IMPISP_RUNNING_MODE_NIGHT) {
+				pmode = IMPISP_RUNNING_MODE_NIGHT;
 				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. switching to night mode\n",
 						get_curr_timestr((char *) &tmstr), avgExp);
 				evDebugCount = 10; // start logging 10s of EV data
-
-				IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_NIGHT);
-				IMP_ISP_Tuning_SetSensorFPS(10, SENSOR_FRAME_RATE_DEN);
+				if (! force_color) {
+					IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_NIGHT);
+					IMP_ISP_Tuning_SetSensorFPS(10, SENSOR_FRAME_RATE_DEN);
+				} else {
+					IMP_LOG_INFO(TAG, "[%s] force_color is on\n",
+						get_curr_timestr((char *) &tmstr));
+				}
 				sample_set_IRCUT(1);
 			}
 		} else if (avgExp < 479832) {
 			if (pmode != IMPISP_RUNNING_MODE_DAY) {
+				pmode = IMPISP_RUNNING_MODE_DAY;
 				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. switching to day mode\n",
 						get_curr_timestr((char *) &tmstr), avgExp);
 				evDebugCount = 10; // start logging 10s of EV data
 
-				IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_DAY);
-				IMP_ISP_Tuning_SetSensorFPS(SENSOR_FRAME_RATE_NUM, SENSOR_FRAME_RATE_DEN);
+				if (! force_color) {
+					IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_DAY);
+					IMP_ISP_Tuning_SetSensorFPS(SENSOR_FRAME_RATE_NUM, SENSOR_FRAME_RATE_DEN);
+				}
 				sample_set_IRCUT(0);
 			}
 		}
@@ -1407,6 +1424,7 @@ void *sample_soft_photosensitive_ctrl(void *p)
 			ir_leds_active = 0;
 		}
 
+end:
 		sleep(1);
 	}
 

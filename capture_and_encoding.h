@@ -7,7 +7,7 @@ int get_stream(int fd, int chn);
 
 // implemented in imp-common.c
 extern "C" {
-int set_cam_option(char *option, int value);
+int set_cam_option(const char *option, int value);
 }
 
 #endif
