@@ -125,6 +125,12 @@ int main(int argc, char** argv) {
 		  exit(1);
 		}
 
+		// enable TCP keepalive on socket
+		int keepalive_flag = 1;
+		if (setsockopt(rtspServer->fServerSocket, SOL_SOCKET, SO_KEEPALIVE, (void*) &keepalive_flag, sizeof(keepalive_flag)) != 0) {
+		  *env << "unable to set keepalive on socket: " << strerror(errno) << "\n";
+		}
+
 		char const* descriptionString
 		  = "Session streamed by \"testOnDemandRTSPServer\"";
 

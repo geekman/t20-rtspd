@@ -149,11 +149,13 @@ protected:
     HashTable::Iterator* fOurIterator;
   };
 
+public:
+  int fServerSocket;	// XXX hack to allow access to server socket
+
 protected:
   friend class ClientConnection;
   friend class ClientSession;	
   friend class ServerMediaSessionIterator;
-  int fServerSocket;
   Port fServerPort;
   unsigned fReclamationSeconds;
 
