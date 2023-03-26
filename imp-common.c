@@ -1229,18 +1229,23 @@ int sample_get_jpeg_snap()
 }
 #endif
 
+#define STRINGIFY__(a) #a
+#define STRINGIFY(a) STRINGIFY__(a)
+
+// Enables the IR cut filter, which blocks out IR light for day time.
+// enable=1 for day time, enable=0 for night.
 int sample_set_IRCUT(int enable)
 {
 	int fd1, fd2;
-	fd1 = open("/sys/class/gpio/gpio25/value", O_RDWR);
+	fd1 = open("/sys/class/gpio/gpio" STRINGIFY(IRCUT_DIS_GPIO) "/value", O_RDWR);
 	if (fd1 < 0) {
-		IMP_LOG_DBG(TAG, "open gpio 25 error !");
+		IMP_LOG_DBG(TAG, "open gpio " STRINGIFY(IRCUT_DIS_GPIO) " error !");
 		return -1;
 	}
-	fd2 = open("/sys/class/gpio/gpio26/value", O_RDWR);
+	fd2 = open("/sys/class/gpio/gpio" STRINGIFY(IRCUT_EN_GPIO) "/value", O_RDWR);
 	if (fd2 < 0) {
 		close(fd1);
-		IMP_LOG_DBG(TAG, "open gpio 26 error !");
+		IMP_LOG_DBG(TAG, "open gpio " STRINGIFY(IRCUT_EN_GPIO) " error !");
 		return -1;
 	}
 	if (enable) {
@@ -1363,7 +1368,7 @@ void *sample_soft_photosensitive_ctrl(void *p)
 		}
 
 
-		if (avgExp > 1900000) {
+		if (avgExp > EXP_NIGHT_THRESHOLD) {
 			if (pmode != IMPISP_RUNNING_MODE_NIGHT) {
 				pmode = IMPISP_RUNNING_MODE_NIGHT;
 				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. switching to night mode\n",
@@ -1376,9 +1381,9 @@ void *sample_soft_photosensitive_ctrl(void *p)
 					IMP_LOG_INFO(TAG, "[%s] force_color is on\n",
 						get_curr_timestr((char *) &tmstr));
 				}
-				sample_set_IRCUT(1);
+				sample_set_IRCUT(0);
 			}
-		} else if (avgExp < 479832) {
+		} else if (avgExp < EXP_DAY_THRESHOLD) {
 			if (pmode != IMPISP_RUNNING_MODE_DAY) {
 				pmode = IMPISP_RUNNING_MODE_DAY;
 				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. switching to day mode\n",
@@ -1389,12 +1394,12 @@ void *sample_soft_photosensitive_ctrl(void *p)
 					IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_DAY);
 					IMP_ISP_Tuning_SetSensorFPS(SENSOR_FRAME_RATE_NUM, SENSOR_FRAME_RATE_DEN);
 				}
-				sample_set_IRCUT(0);
+				sample_set_IRCUT(1);
 			}
 		}
 
 		// control IR LEDs
-		if (avgExp > 3000000) {
+		if (avgExp > EXP_IR_THRESHOLD) {
 			// only log for first time
 			if (! ir_leds_active) {
 				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. turning on IR LEDs\n",
@@ -1407,7 +1412,11 @@ void *sample_soft_photosensitive_ctrl(void *p)
 			int ev = (avgExp > longExpValue) ? avgExp : longExpValue;
 
 			// map 3 to 13mil => 1 to 1mil for PWM
-			int level = (ev - 3000000) / 10;
+#ifdef PLATFORM_T31
+			int level = (ev - EXP_IR_THRESHOLD) * 3;
+#else
+			int level = (ev - EXP_IR_THRESHOLD) / 10;
+#endif
 
 			// cap to maximum
 			if (level > pwm_cfg.period)

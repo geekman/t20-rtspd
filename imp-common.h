@@ -20,10 +20,10 @@ extern "C"
 #endif
 #endif /* __cplusplus */
 
-#define SENSOR_FRAME_RATE_NUM		15
+// sensor params now defined in the Makefile
+//#define SENSOR_JXF23
+//#define SENSOR_FRAME_RATE_NUM		15
 #define SENSOR_FRAME_RATE_DEN		1
-
-#define SENSOR_JXF23
 
 #if defined SENSOR_AR0141
 #define SENSOR_NAME				"ar0141"

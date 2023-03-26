@@ -186,9 +186,11 @@ int capture_and_encoding()
 	
 	printf(">>>>>caputre_and_encoding start\n");
 
+#ifdef PLATFORM_T20L
 	// undocumented functions to increase pool size
 	IMP_OSD_SetPoolSize(0x64000);
 	IMP_Encoder_SetPoolSize(0x100000);
+#endif
 
 	ret = sample_system_init();
 	if (ret < 0) {
