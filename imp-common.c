@@ -143,6 +143,12 @@ struct chn_conf chn_ext_bgra[1] = {
 	},
 };
 
+
+static int ir_illumination = 1;		// use IR LEDs when dark
+static int force_color = 0;			// use color mode, even at night
+static int flip_image = 0;			// flip 180deg for ceiling mounts
+
+
 IMPSensorInfo sensor_info;
 int sample_system_init()
 {
@@ -206,6 +212,21 @@ int sample_system_init()
 	if (ret < 0){
 		IMP_LOG_ERR(TAG, "failed to set hilight depress\n");
 		return -1;
+	}
+
+	// flip the image 180deg if requested
+	if (flip_image) {
+		ret = IMP_ISP_Tuning_SetISPHflip(IMPISP_TUNING_OPS_MODE_ENABLE);
+		if (ret < 0){
+			IMP_LOG_ERR(TAG, "failed to horiz flip\n");
+			return -1;
+		}
+
+		ret = IMP_ISP_Tuning_SetISPVflip(IMPISP_TUNING_OPS_MODE_ENABLE);
+		if (ret < 0){
+			IMP_LOG_ERR(TAG, "failed to vert flip\n");
+			return -1;
+		}
 	}
 
 	IMP_LOG_INFO(TAG, "ImpSystemInit success\n");
@@ -1277,12 +1298,11 @@ char *get_curr_timestr(char *buf) {
 #define NUM_EXP_VALUES (EXP_LENGTH / 8)
 
 
-static int ir_illumination = 1;		// use IR LEDs when dark
-static int force_color = 0;			// use color mode, even at night
-
 int set_cam_option(const char *option, int value) {
 	if (strcmp(option, "ir_leds") == 0) {
 		ir_illumination = value;
+	} else if (strcmp(option, "flip") == 0) {
+		flip_image = value;
 	} else if (strcmp(option, "force_color") == 0) {
 		force_color = value;
 	} else {

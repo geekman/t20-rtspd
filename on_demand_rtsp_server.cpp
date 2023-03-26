@@ -48,6 +48,7 @@ void displayUsage() {
 	*env << "usage: t20-rtspd [args...]\n\n"
 		" --help            dispaly this help message\n"
 		" --noir            do not turn on IR LEDs (for use behind glass)\n"
+		" --flip            flips the image 180deg for ceiling mount\n"
 		" --force-color     stay in color mode, even at night\n";
 	exit(0);
 }
@@ -75,6 +76,8 @@ int main(int argc, char** argv) {
 				set_cam_option("ir_leds", 0);
 			} else if (strcmp(arg, "force-color") == 0) {
 				set_cam_option("force_color", 1);
+			} else if (strcmp(arg, "flip") == 0) {
+				set_cam_option("flip", 1);
 			} else {
 				*env << "unrecognized argument " << argv[i] << "\n\n";
 				displayUsage();
