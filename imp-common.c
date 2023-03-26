@@ -1296,6 +1296,7 @@ static int  g_soft_ps_running = 1;
 void *sample_soft_photosensitive_ctrl(void *p)
 {
 	int evDebugCount = 0;
+	int hysteresisCount = 5;
 	char tmstr[16];
 	int avgExp;
 	int expCount = 0;
@@ -1323,6 +1324,8 @@ void *sample_soft_photosensitive_ctrl(void *p)
 
 	// make sure it's in an "uninitialized" state
 	expValues[NUM_EXP_VALUES - 1] = 0;
+
+	sleep(2);	// wait a few for ISP to settle
 
 	while (g_soft_ps_running) {
 		IMPISPEVAttr expAttr;
@@ -1367,6 +1370,14 @@ void *sample_soft_photosensitive_ctrl(void *p)
 				longExpValue += (expValues[j] - longExpValue) / i;
 		}
 
+		// if the hysteresisCount is active, we skip any changes below
+		if (hysteresisCount > 0) {
+			hysteresisCount--;
+			goto end;
+		}
+
+		///////////////////////////////////////////////////////////////
+
 
 		if (avgExp > EXP_NIGHT_THRESHOLD) {
 			if (pmode != IMPISP_RUNNING_MODE_NIGHT) {
@@ -1374,6 +1385,8 @@ void *sample_soft_photosensitive_ctrl(void *p)
 				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. switching to night mode\n",
 						get_curr_timestr((char *) &tmstr), avgExp);
 				evDebugCount = 10; // start logging 10s of EV data
+				hysteresisCount = 5;
+
 				if (! force_color) {
 					IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_NIGHT);
 					IMP_ISP_Tuning_SetSensorFPS(10, SENSOR_FRAME_RATE_DEN);
@@ -1389,6 +1402,7 @@ void *sample_soft_photosensitive_ctrl(void *p)
 				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. switching to day mode\n",
 						get_curr_timestr((char *) &tmstr), avgExp);
 				evDebugCount = 10; // start logging 10s of EV data
+				hysteresisCount = 5;
 
 				if (! force_color) {
 					IMP_ISP_Tuning_SetISPRunningMode(IMPISP_RUNNING_MODE_DAY);
@@ -1405,6 +1419,7 @@ void *sample_soft_photosensitive_ctrl(void *p)
 				IMP_LOG_INFO(TAG, "[%s] avg exp is %d. turning on IR LEDs\n",
 						get_curr_timestr((char *) &tmstr), avgExp);
 				evDebugCount = 10; // start logging 10s of EV data
+				hysteresisCount = 5;
 			}
 
 			// it's ok to go higher, but not lower than long-running average
@@ -1428,6 +1443,7 @@ void *sample_soft_photosensitive_ctrl(void *p)
 			IMP_LOG_INFO(TAG, "[%s] avg exp is %d. turning off IR LEDs\n",
 						get_curr_timestr((char *) &tmstr), avgExp);
 			evDebugCount = 10; // start logging 10s of EV data
+			hysteresisCount = 5;
 
 			if (ir_illumination) pwm_set_duty(pwm_cfg.channel, 0);
 			ir_leds_active = 0;
